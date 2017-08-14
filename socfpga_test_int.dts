@@ -1,0 +1,17 @@
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "socfpga_cyclone5my.dts"
+
+/*Extends the SoC with a soft component. */
+/ {
+	soc{
+		mysoftip{
+			compatible="altr ,socfpga-mysoftip";
+			interrupts=<GIC_SPI 40 IRQ_TYPE_EDGE_RISING>;
+		};
+		mysoftip2{
+			compatible="altr ,socfpga-mysoftip";
+			interrupts=<GIC_SPI 41 IRQ_TYPE_EDGE_RISING>;
+		};
+	};
+};
