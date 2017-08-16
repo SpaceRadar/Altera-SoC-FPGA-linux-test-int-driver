@@ -1,6 +1,6 @@
 ifeq ($(KERNELRELEASE),)
 
-    KERNELDIR ?= /home/alex/SoC/kernel/terasic_MTL
+    KERNELDIR ?= /home/alex/SoC/kernel/linux-socfpga
     PWD := $(shell pwd)
 
 modules:
