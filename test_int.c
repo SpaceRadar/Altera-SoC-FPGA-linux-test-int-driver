@@ -87,10 +87,26 @@ static int create_file_name(char* file_name, char* pattern, int idx, unsigned lo
     return 0;
 }
 
+
+
+void show_resource(struct platform_device *dev)
+{
+	int i;
+    printk(KERN_INFO DEVNAME":device total resources %d\n", dev->num_resources);
+	for (i = 0; i < dev->num_resources; i++) 
+    {
+		struct resource *r = &dev->resource[i];
+		printk(KERN_INFO DEVNAME":resource %d -type %x -name %s\n", i,resource_type(r),r->name);
+	}
+}
+
 static int __test_int_driver_probe(struct platform_device* pdev)
 {
 	int irq_num,ret;
+    void* ptr;
+    unsigned int in_data_addr,out_data_addr;
     struct device_data_t* device_data;
+    struct resource* res=NULL;
 
 	device_data = devm_kzalloc(&pdev->dev, sizeof(struct device_data_t),GFP_KERNEL);
 	irq_num=platform_get_irq(pdev,0);
@@ -107,6 +123,96 @@ static int __test_int_driver_probe(struct platform_device* pdev)
 
 	printk(KERN_INFO DEVNAME":IRQ %d about to be registered!\n", irq_num);
 	printk(KERN_INFO DEVNAME":device_data pointer %x -dev %x\n", (int)device_data, (int)&device_data->dev);
+
+    show_resource(pdev);    
+
+    ptr=of_get_property(pdev->dev.of_node,"in_data_addr",NULL);
+    if(ptr)
+    {
+        in_data_addr=be32_to_cpup(ptr);
+     	printk(KERN_INFO DEVNAME":device resources in %x\n", in_data_addr);
+    }
+    else
+           	printk(KERN_INFO DEVNAME":device resources in not found\n");
+    ptr=of_get_property(pdev->dev.of_node,"out_data_addr",NULL);
+    if(ptr)
+    {
+        out_data_addr=be32_to_cpup(ptr);
+      	printk(KERN_INFO DEVNAME":device resources out %x\n", out_data_addr);
+    }
+    else
+        printk(KERN_INFO DEVNAME":device resources out not found\n");
+
+    int reg;
+    if(!of_property_read_u32(pdev->dev.of_node,"in_data_addr",&reg))
+       printk(KERN_INFO DEVNAME":device resources id data new %x\n",reg);    
+
+
+    char* buff;
+    if(!of_property_read_string(pdev->dev.of_node,"status",&buff))
+       printk(KERN_INFO DEVNAME":device resources id status new %s\n",buff); 
+
+    int regg[64];
+    if(!of_property_read_u32_array(pdev->dev.of_node,"reg",&regg,1))
+       printk(KERN_INFO DEVNAME":device resources id reg new %x %x %x %x\n",regg[0],regg[1],regg[2],regg[3]);
+    else
+       printk(KERN_INFO DEVNAME":array not found\n");
+
+
+    int regs[64];
+    if(!of_property_read_u32_array(pdev->dev.of_node,"reg",&regg,4))
+       printk(KERN_INFO DEVNAME":device resources id reg new %x %x %x %x\n",regg[0],regg[1],regg[2],regg[3]);
+    else
+       printk(KERN_INFO DEVNAME":array not found\n");
+
+
+    res=platform_get_resource_byname(pdev,IORESOURCE_MEM,"<b>csr</b>");
+    if(res)
+    {
+      	printk(KERN_INFO DEVNAME":device resources by name csr %d %d\n", res->start,resource_size(res));
+        int* p;
+        p=devm_ioremap_resource(&pdev->dev,res);
+        if(!IS_ERR(p))
+          	printk(KERN_INFO DEVNAME":device resources by name csr val%d\n", *p);
+        else
+          	printk(KERN_INFO DEVNAME":device resources can not remap\n");
+    }
+    else
+        printk(KERN_INFO DEVNAME":device resources by name csr not found\n");
+    
+
+    res=platform_get_resource_byname(pdev,IORESOURCE_MEM,"<b>data</b>");
+    if(res)
+    {
+      	printk(KERN_INFO DEVNAME":device resources by name data %d %d\n", res->start,resource_size(res));
+        int* p;
+        p=devm_ioremap_resource(&pdev->dev,res);
+        if(!IS_ERR(p))
+          	printk(KERN_INFO DEVNAME":device resources by name data val%d\n", *p);
+        else
+          	printk(KERN_INFO DEVNAME":device resources can not remap\n");
+    }
+    else
+        printk(KERN_INFO DEVNAME":device resources by name data not found\n");
+
+
+/*
+
+    res=platform_get_resource(pdev,IORESOURCE_MEM,0);
+    if(res)
+    {
+      	printk(KERN_INFO DEVNAME":device resources by id %d %d %d\n", res->start,resource_size(res),*((int*)res->start));
+    }
+    else
+        printk(KERN_INFO DEVNAME":device resources by id not found\n");
+*/
+
+
+
+
+
+
+//	printk(KERN_INFO DEVNAME":device resources in %x -out %x\n", in_data_addr,out_data_addr);
     ret=devm_request_irq(&pdev->dev,irq_num,__test_isr,0,DEVNAME,device_data);
 	return ret;
 }

@@ -8,10 +8,14 @@
 		mysoftip{
 			compatible="altr ,socfpga-mysoftip";
 			interrupts=<GIC_SPI 40 IRQ_TYPE_EDGE_RISING>;
+            in_data_addr=<0x12345>;
+            out_data_addr=<0x54321>;
 		};
 		mysoftip2{
 			compatible="altr ,socfpga-mysoftip";
 			interrupts=<GIC_SPI 41 IRQ_TYPE_EDGE_RISING>;
+            in_data_addr=<0x77777>;
+            out_data_addr=<0x88888>;
 		};
 	};
 };
