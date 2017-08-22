@@ -30,6 +30,7 @@ static int mopen_open( struct inode *n, struct file *f )
 ssize_t null_read(struct file *filp, char __user *buf, size_t count,
                 loff_t *f_pos)
 {
+/*
     char mess[]="hello world\n";
     struct device_data_t* device_data;
     size_t rd_count=min(count,sizeof(mess)-1);
@@ -47,6 +48,12 @@ ssize_t null_read(struct file *filp, char __user *buf, size_t count,
     }
     else
         return 0;
+*/
+    void* regs;
+    regs=ioremap_nocache(0xC000FFF0,64);
+    iowrite32(0,regs);
+    iounmap(regs);
+    return 0;
 }
 
 
@@ -107,6 +114,7 @@ static int __test_int_driver_probe(struct platform_device* pdev)
     unsigned int in_data_addr,out_data_addr;
     struct device_data_t* device_data;
     struct resource* res=NULL;
+    struct device_node* nod;
 
 	device_data = devm_kzalloc(&pdev->dev, sizeof(struct device_data_t),GFP_KERNEL);
 	irq_num=platform_get_irq(pdev,0);
@@ -123,6 +131,11 @@ static int __test_int_driver_probe(struct platform_device* pdev)
 
 	printk(KERN_INFO DEVNAME":IRQ %d about to be registered!\n", irq_num);
 	printk(KERN_INFO DEVNAME":device_data pointer %x -dev %x\n", (int)device_data, (int)&device_data->dev);
+
+    nod=of_get_parent(pdev->dev.of_node);
+    if(nod)
+    	printk(KERN_INFO DEVNAME": name %s parent name %s\n", pdev->dev.of_node->name, nod->name);
+
 
     show_resource(pdev);    
 
@@ -194,6 +207,10 @@ static int __test_int_driver_probe(struct platform_device* pdev)
     }
     else
         printk(KERN_INFO DEVNAME":device resources by name data not found\n");
+
+
+
+
 
 
 /*

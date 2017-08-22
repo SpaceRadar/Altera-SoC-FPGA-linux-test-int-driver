@@ -8,6 +8,8 @@
 		mysoftip{
 			compatible="altr ,socfpga-mysoftip";
 			interrupts=<GIC_SPI 40 IRQ_TYPE_EDGE_RISING>;
+            reg = < 11 22 33>, < 11 22 33>;
+            reg-names="<b>csr</b>","<b>data</b>";
             in_data_addr=<0x12345>;
             out_data_addr=<0x54321>;
 		};
@@ -17,5 +19,23 @@
             in_data_addr=<0x77777>;
             out_data_addr=<0x88888>;
 		};
+		mysoftip3{
+			compatible="altr ,socfpga-mysoftip";
+			interrupts=<GIC_SPI 42 IRQ_TYPE_EDGE_RISING>;
+            reg = <0x00000001 0x00033000 0x00000020>,
+			      <0x00000000 0x00034000 0x00000010>;
+			reg-names = "<b>csr</b>", "<b>data</b>";
+            status = "okay";
+		};
+		mysoftip4{
+			compatible="altr ,socfpga-mysoftip";
+			interrupts=<GIC_SPI 43 IRQ_TYPE_EDGE_RISING>,
+                       <GIC_SPI 44 IRQ_TYPE_EDGE_RISING>;
+			label = "Flash 0 jffs2 Filesystem";
+			reg = <0x800000 0x7800000>;
+		};
+
+
+
 	};
 };
