@@ -10,6 +10,8 @@
 #include<linux/fs.h>
 #include<linux/uaccess.h>
 #include<linux/slab.h>
+#include<linux/dma-mapping.h>
+
 
 #define DEVNAME                     "test_int"
 #define DEV_FILE_NAME_MAX_LENGTH    (sizeof(DEVNAME)+5)
@@ -20,6 +22,7 @@ struct device_data_t
     int               sign; 
     struct miscdevice dev;
     char              file_name[DEV_FILE_NAME_MAX_LENGTH];   
+    int*              data; 
 };
 
 static int mopen_open( struct inode *n, struct file *f ) 
@@ -27,42 +30,64 @@ static int mopen_open( struct inode *n, struct file *f )
    return 0;
 }
 
-ssize_t null_read(struct file *filp, char __user *buf, size_t count,
-                loff_t *f_pos)
+ssize_t read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 {
-/*
-    char mess[]="hello world\n";
+    void* regs;
     struct device_data_t* device_data;
-    size_t rd_count=min(count,sizeof(mess)-1);
+    //size_t rd_count=min(count,sizeof(mess)-1);
     device_data=container_of(filp->private_data,struct device_data_t, dev);
 	printk(KERN_INFO DEVNAME":device_data dev pointer %x\n", (int)filp->private_data);
-    copy_to_user(buf,mess,sizeof(mess)-1);
-    printk(KERN_ALERT"%d bytes asked to read\n", (int)count);
-    if(!*f_pos)
-    {
-        wait_event_interruptible(device_data->queue,device_data->sign==1);
-        device_data->sign=0;
-        printk(KERN_ALERT"%d asked bytes readed\n", (int)count);
-        *f_pos+=rd_count;
-    	return rd_count;
-    }
-    else
-        return 0;
-*/
-    void* regs;
-    regs=ioremap_nocache(0xC000FFF0,64);
-    iowrite32(0,regs);
+
+
+    regs=ioremap_nocache(0xFF200004,64);
+    iowrite32(count,regs);
     iounmap(regs);
-    return 0;
+
+    wait_event_interruptible(device_data->queue,device_data->sign==1);
+    device_data->sign=0;
+
+
+    copy_to_user(buf,device_data->data,count*2);
+
+
+    return count;
 }
 
+
+
+ssize_t write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
+{
+    void* regs;
+    u32 res;
+    struct device_data_t* device_data;
+    //size_t rd_count=min(count,sizeof(mess)-1);
+    device_data=container_of(filp->private_data,struct device_data_t, dev);
+	printk(KERN_INFO DEVNAME":device_data dev pointer %x\n", (int)filp->private_data);
+
+    copy_from_user(device_data->data,buf,count);
+
+    regs=ioremap_nocache(0xFF200004,64);
+    iowrite32((count>>3)-1,regs);
+
+
+    wait_event_interruptible(device_data->queue,device_data->sign==1);
+    device_data->sign=0;
+	printk(KERN_INFO DEVNAME": write continue\n");
+
+
+    res=ioread32(regs);
+    iounmap(regs);
+
+
+    return res;
+}
 
 static const struct file_operations fops = {
    .owner  = THIS_MODULE,
    .open =    mopen_open,
 //   .release = mopen_release,
-   .read   =  null_read,
-//   .write  =  mopen_write,
+   .read   =  read,
+   .write  =  write,
 };
 
 irqreturn_t __test_isr(int irq, void* dev_id)
@@ -127,7 +152,7 @@ static int __test_int_driver_probe(struct platform_device* pdev)
     device_data->sign=0;
     init_waitqueue_head(&device_data->queue);
     ret = misc_register(&device_data->dev); 
-    platform_set_drvdata(pdev,device_data); 
+
 
 	printk(KERN_INFO DEVNAME":IRQ %d about to be registered!\n", irq_num);
 	printk(KERN_INFO DEVNAME":device_data pointer %x -dev %x\n", (int)device_data, (int)&device_data->dev);
@@ -214,7 +239,6 @@ static int __test_int_driver_probe(struct platform_device* pdev)
 
 
 /*
-
     res=platform_get_resource(pdev,IORESOURCE_MEM,0);
     if(res)
     {
@@ -225,11 +249,18 @@ static int __test_int_driver_probe(struct platform_device* pdev)
 */
 
 
+    dma_addr_t dma_addr;
+    device_data->data=dmam_alloc_coherent(&pdev->dev,4096,&dma_addr,GFP_KERNEL);
 
+    void* regs2;
+    regs2=ioremap_nocache(0xFF200000,64);
+    iowrite32(dma_addr,regs2);
+    iounmap(regs2);
 
 
 
 //	printk(KERN_INFO DEVNAME":device resources in %x -out %x\n", in_data_addr,out_data_addr);
+    platform_set_drvdata(pdev,device_data); 
     ret=devm_request_irq(&pdev->dev,irq_num,__test_isr,0,DEVNAME,device_data);
 	return ret;
 }
@@ -270,4 +301,3 @@ static struct platform_driver __test_int_driver=
 
 module_platform_driver(__test_int_driver);
 MODULE_LICENSE("GPL");
-
