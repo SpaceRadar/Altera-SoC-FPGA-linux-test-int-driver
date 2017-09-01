@@ -7,7 +7,7 @@ module crc3
   input      [31:0]              ctrl_writedata,
   input                          ctrl_read,
   output reg [31:0]              ctrl_readdata, 
-  input                          ctrl_address,
+  input      [1:0]               ctrl_address,
   output reg                     ctrl_waitrequest,  
 
   output wire                    master_read,
@@ -32,6 +32,11 @@ reg [31:0] data;
 reg        calc;
 reg        update_address;
 reg        hi_bit_input_counter_delayed;
+reg [31:0] timer;
+reg [31:0] timer_to_irq;
+reg [31:0] total_time;
+reg        timer_to_irq_active; 
+reg        ctrl_read_delayed;
 
 
 assign master_burstcount=1'b1;
@@ -44,11 +49,11 @@ always @(posedge clk, posedge reset)
 if(reset)
   start_address<=32'h0000_0000;
 else
-  if(ctrl_write & !ctrl_address)
+  if(ctrl_write & (ctrl_address==2'b00))
 	 start_address<=ctrl_writedata;
 
 always @(posedge clk)
-  update_address<=(ctrl_write & !ctrl_address);	 
+  update_address<=(ctrl_write & (ctrl_address==2'b00));	 
 /*
 always @(posedge clk, posedge reset)
 if(reset)
@@ -72,12 +77,23 @@ if(reset)
 else
 	irq<= input_counter[31] & ~hi_bit_input_counter_delayed;	
 
+always @(posedge clk, posedge reset)
+if(reset)
+  timer_to_irq_active<=1'b0;
+else
+  if(ctrl_write & (ctrl_address==2'b01))	
+	 timer_to_irq_active<=1'b1;
+  else
+	 if(irq)
+		timer_to_irq_active<=1'b0;
+	 
+  
 	 
 always @(posedge clk, posedge reset)
 if(reset)
   counter<=32'hFFFF_FFFF;
 else
-  if(ctrl_write & ctrl_address)
+  if(ctrl_write & (ctrl_address==2'b01))
 	 counter<=ctrl_writedata;
   else
     if(master_read & ~master_waitrequest)
@@ -87,7 +103,7 @@ always @(posedge clk, posedge reset)
 if(reset)
   input_counter<=32'hFFFF_FFFF;
 else
-  if(ctrl_write & ctrl_address)
+  if(ctrl_write & (ctrl_address==2'b01))
 	 input_counter<=ctrl_writedata;
   else
     if(master_readdatavalid)
@@ -107,7 +123,7 @@ always @(posedge clk, posedge reset)
 if(reset)
   acc<=32'h0000_0000;
 else
-  if(ctrl_write & ctrl_address)
+  if(ctrl_write & (ctrl_address==2'b01))
 	 acc<=32'h0000_0000;
   else
     if(calc)    
@@ -118,7 +134,7 @@ always @(posedge clk, posedge reset)
 if(reset)
   data<=32'h0000_0000;
 else
-  if(ctrl_write & ctrl_address)
+  if(ctrl_write & (ctrl_address==2'b01))
 	 data<=32'h0000_0000;
   else
     if(master_readdatavalid)    
@@ -126,10 +142,43 @@ else
 
 always @(posedge clk)
   ctrl_waitrequest<=1'b0;
-  
+
+
 always @(posedge clk)
-  ctrl_readdata<=acc;
- 
+if(irq)
+  timer<=32'h0000_0000;
+else
+  timer<=timer+32'd1;
+
+
+always @(posedge clk)
+if(ctrl_write & (ctrl_address==2'b01))
+  timer_to_irq<=32'h0000_0000;
+else
+  if(timer_to_irq_active)	
+    timer_to_irq<=timer_to_irq+32'd1;
+	 
+	 
+always @(posedge clk, posedge reset)
+if(reset)
+  total_time<=32'h0000_0000;
+else
+  if(ctrl_read_delayed & (ctrl_address==2'b11))
+	 total_time<=32'h0000_0000;
+  else
+    total_time<=total_time+32'd1;
+
+always @(posedge clk)
+  ctrl_read_delayed<=ctrl_read;
+	 
+always @(posedge clk)
+case(ctrl_address) 
+  2'b00: ctrl_readdata<=acc;
+  2'b01: ctrl_readdata<=timer;
+  2'b10: ctrl_readdata<=timer_to_irq;
+  2'b11: ctrl_readdata<=total_time;
+endcase  
+
  
   
 endmodule

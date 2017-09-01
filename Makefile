@@ -16,7 +16,7 @@ clean:
 
 else
 
-    obj-m := test_int.o 
+    obj-m := test.o 
 endif
 
 
